@@ -192,18 +192,38 @@ header h1 {
     border: 1px solid #ddd;
     font-family: 'Courier New', monospace;
     font-size: 1.1em;
-    line-height: 2;
+    line-height: 1.5;
     white-space: pre-wrap;
 }
 
-/* ACCORDI IN ROSSO - Requisito chiave! */
+/* Container per riga con accordi e testo */
+.chord-line-container {
+    margin-bottom: 8px;
+    font-family: 'Courier New', monospace;
+}
+
+/* Riga degli ACCORDI IN ROSSO sopra il testo */
+.chord-line {
+    color: #DC143C; /* Rosso cremisi */
+    font-weight: bold;
+    font-size: 0.95em;
+    white-space: pre;
+    line-height: 1.2;
+    min-height: 1.2em;
+}
+
+/* Riga del testo sotto gli accordi */
+.text-line {
+    color: #333;
+    white-space: pre-wrap;
+    line-height: 1.5;
+}
+
+/* ACCORDI IN ROSSO - Requisito chiave! (per eventuali accordi inline) */
 .chord {
     color: #DC143C; /* Rosso cremisi */
     font-weight: bold;
     font-size: 0.95em;
-    position: relative;
-    display: inline-block;
-    margin: 0 2px;
 }
 
 /* MELODIA IN VERDE - Requisito chiave! */

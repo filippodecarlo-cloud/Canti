@@ -193,16 +193,79 @@ function renderSection(section) {
 
 // ==========================================
 // CHORD PARSING - CRITICAL FUNCTIONALITY!
-// Parses [chord] notation and renders in RED
+// Parses [chord] notation and renders ABOVE text
 // ==========================================
 function parseChords(text) {
-    // Parse melody notation {melody text} in GREEN
+    // Parse melody notation {melody text} in GREEN - keep inline for melodies
     text = text.replace(/\{([^}]+)\}/g, '<span class="melody">$1</span>');
 
-    // Parse chord notation [chord] in RED
-    text = text.replace(/\[([^\]]+)\]/g, '<span class="chord">$1</span>');
+    // Check if there are any chords in this line
+    if (!text.includes('[')) {
+        return text;
+    }
 
-    return text;
+    // Extract chords and their positions
+    const chords = [];
+    let textOnly = '';
+    let position = 0;
+    let i = 0;
+
+    while (i < text.length) {
+        if (text[i] === '[') {
+            // Found a chord
+            const endBracket = text.indexOf(']', i);
+            if (endBracket !== -1) {
+                const chord = text.substring(i + 1, endBracket);
+                chords.push({
+                    chord: chord,
+                    position: position
+                });
+                i = endBracket + 1;
+            } else {
+                // Malformed chord, just add the bracket
+                textOnly += text[i];
+                position++;
+                i++;
+            }
+        } else {
+            textOnly += text[i];
+            position++;
+            i++;
+        }
+    }
+
+    // If no chords found, return text as is
+    if (chords.length === 0) {
+        return textOnly;
+    }
+
+    // Build the chord line
+    let chordLine = '';
+    let currentPos = 0;
+
+    chords.forEach((chordObj, index) => {
+        // Add spaces to reach the chord position
+        while (currentPos < chordObj.position) {
+            chordLine += ' ';
+            currentPos++;
+        }
+
+        // Add the chord
+        chordLine += chordObj.chord;
+        currentPos += chordObj.chord.length;
+
+        // Add a space after the chord if it's not the last one
+        if (index < chords.length - 1) {
+            chordLine += ' ';
+            currentPos++;
+        }
+    });
+
+    // Return both lines wrapped in a container
+    return `<div class="chord-line-container">
+                <div class="chord-line">${chordLine}</div>
+                <div class="text-line">${textOnly}</div>
+            </div>`;
 }
 
 function escapeMelody(text) {
