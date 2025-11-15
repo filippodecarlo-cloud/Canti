@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chi canta prega due volte</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <h1>Chi canta prega due volte</h1>
+            <p class="subtitle">Sant'Agostino</p>
+        </header>
+
+        <!-- Navigation -->
+        <nav class="main-nav">
+            <button id="btnIndex" class="nav-btn">📖 Indice</button>
+            <button id="btnAddSong" class="nav-btn">➕ Aggiungi Canto</button>
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="Cerca un canto...">
+            </div>
+        </nav>
+
+        <!-- Index View -->
+        <div id="indexView" class="index-view">
+            <h2>Indice dei Canti</h2>
+            <div id="songList" class="song-list">
+                <!-- Populated by JavaScript -->
+            </div>
+        </div>
+
+        <!-- Song Display View -->
+        <div id="songView" class="song-view hidden">
+            <div class="song-header">
+                <button id="btnBackToIndex" class="back-btn">← Torna all'indice</button>
+                <h2 id="songTitle"></h2>
+            </div>
+            <div class="song-controls">
+                <button id="btnPrevSong" class="control-btn">← Precedente</button>
+                <button id="btnNextSong" class="control-btn">Successivo →</button>
+            </div>
+            <div id="songContent" class="song-content">
+                <!-- Song lyrics and chords will be displayed here -->
+            </div>
+        </div>
+
+        <!-- Add Song View -->
+        <div id="addSongView" class="add-song-view hidden">
+            <h2>Aggiungi Nuovo Canto</h2>
+            <button id="btnCancelAdd" class="back-btn">← Annulla</button>
+
+            <form id="addSongForm">
+                <div class="form-group">
+                    <label for="newSongTitle">Titolo:</label>
+                    <input type="text" id="newSongTitle" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="newSongAuthor">Autore (opzionale):</label>
+                    <input type="text" id="newSongAuthor">
+                </div>
+
+                <div class="form-group">
+                    <label for="newSongMelody">Melodia (opzionale):</label>
+                    <input type="text" id="newSongMelody" placeholder="Es: Melodia (Sol maggiore): si-la-sol--re">
+                </div>
+
+                <div class="form-group">
+                    <label for="newSongContent">Testo e Accordi:</label>
+                    <textarea id="newSongContent" rows="15" required placeholder="Inserisci il testo del canto.
+Per gli accordi, usa il formato: [Re]parola [La]altra parola
+Per la melodia iniziale, usa il formato: {Melodia (Sol maggiore): si-la-sol--re}"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="newSongIntro">
+                        Includi introduzione
+                    </label>
+                </div>
+
+                <div class="form-group" id="introGroup" style="display: none;">
+                    <label for="newSongIntroContent">Intro:</label>
+                    <input type="text" id="newSongIntroContent" placeholder="Es: La Re La Re">
+                </div>
+
+                <button type="submit" class="btn-primary">Salva Canto</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="songs-data.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
