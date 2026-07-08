@@ -224,14 +224,16 @@ a{color:var(--accent-ink)}
   <input type="text" id="e-sub" placeholder="es. Gen Verde">
   <label for="e-mel">Melodia iniziale (facoltativa, in verde)</label>
   <input type="text" id="e-mel" placeholder="es. Melodia (Mi maggiore): si-mi-fa#-sol#">
-  <label for="e-body">Testo con accordi</label>
+  <label for="e-body" id="e-bodylabel">Testo con accordi</label>
   <textarea id="e-body" spellcheck="false" placeholder="Mi          La        Si
 Alleluia, alleluia, alleluia&hellip;
 
 oppure in linea: [Mi]Alleluia, [La]alleluia"></textarea>
-  <div class="hint">Scrivi gli <span class="chord-ex">accordi</span> su una riga sopra il testo, allineati alla sillaba (il riquadro usa un font a larghezza fissa: le colonne contano). In alternativa usa le parentesi quadre <b>[Mi]</b> subito prima della sillaba. Le righe di soli accordi vengono riconosciute da sole.</div>
+  <div class="hint" id="e-formathint">Scrivi gli <span class="chord-ex">accordi</span> su una riga sopra il testo, allineati alla sillaba (il riquadro usa un font a larghezza fissa: le colonne contano). In alternativa usa le parentesi quadre <b>[Mi]</b> subito prima della sillaba. Le righe di soli accordi vengono riconosciute da sole.</div>
+  <div class="hint" id="e-bodyhint" style="display:none">Testo e accordi di questo canto restano impaginati esattamente come nel libretto originale. Qui puoi cambiare titolo, autore e melodia iniziale. Se ti serve ritoccare testo o accordi, crea una copia modificabile.</div>
   <div class="btns">
     <button class="btn danger" id="e-delete" style="margin-right:auto;display:none">Elimina</button>
+    <button class="btn" id="e-duplicate" style="display:none">Crea copia modificabile</button>
     <button class="btn" id="e-cancel">Annulla</button>
     <button class="btn primary" id="e-save">Salva</button>
   </div>
@@ -420,7 +422,7 @@ function layoutCustom(lines, z, semis){
         let x;
         if(lyr != null && c.col <= lyr.length) x = measure(lyr.slice(0,c.col), lyricRun, z);
         else if(lyr != null) x = measure(lyr, lyricRun, z) + measure(' '.repeat(c.col - lyr.length), lyricRun, z);
-        else x = c.col * measure(' ', lyricRun, z) * 1.9;
+        else x = c.col * measure('0', chordRun, z);
         segs.push({x: x + PAD_TW*TW2PX*z*0 , text: transposeToken(c.text, semis), run:chordRun});
       }
       rows.push({h:(16/2)*(96/72)*1.25*z, segs});
@@ -445,12 +447,18 @@ const AUTO_TAG_RULES = [
 const TAG_SUGGESTIONS = ['Ingresso','Lode','Adorazione','Spirito Santo','Maria','Offertorio','Comunione','Ordinario della Messa','Natale','Finale','Meditazione'];
 
 let customSongs = store.get('custom', []);
+let overrides = store.get('overrides', {});  // built-in id -> {title, subtitle, melody}
 let tagState = store.get('tags', {});        // id -> {add:[], del:[]}
 let trState = store.get('transpose', {});    // id -> semitones
 let zoomFactor = store.get('zoom', 1);
 
 function allSongs(){
-  const base = SONGS.map((s,i) => ({...s, id:'b'+i, num:i+1, custom:false}));
+  const base = SONGS.map((s,i) => {
+    const song = {...s, id:'b'+i, num:i+1, custom:false};
+    const o = overrides[song.id];
+    if(o) Object.assign(song, o);
+    return song;
+  });
   const cust = customSongs.map(c => ({...c, custom:true}));
   return base.concat(cust);
 }
@@ -524,6 +532,55 @@ function parseCustomBody(body){
     }
   }
   return out;
+}
+
+/* ---------- convert a booklet song to editable text ---------- */
+const CONV_LYRIC_RUN = {b:false,i:false,c:'',sz:22,f:'Arial',ls:0};
+function padToX(text, x){
+  // append spaces to text until its rendered width (Arial 11pt) reaches x
+  const spaceW = measure(' ', CONV_LYRIC_RUN, 1);
+  let w = measure(text, CONV_LYRIC_RUN, 1);
+  let n = Math.max(text ? 1 : 0, Math.round((x - w) / spaceW));
+  if(n < 0) n = 0;
+  return text + ' '.repeat(n);
+}
+function colForX(lyr, x){
+  // char index in lyr whose prefix width best approximates x
+  let best = 0, bestD = Infinity;
+  for(let i=0; i<=lyr.length; i++){
+    const d = Math.abs(measure(lyr.slice(0,i), CONV_LYRIC_RUN, 1) - x);
+    if(d < bestD){ bestD = d; best = i; }
+  }
+  return best;
+}
+function segsToText(segs){
+  let t = '';
+  for(const seg of segs){ t = padToX(t, seg.x); t += seg.text; }
+  return t;
+}
+function builtinToText(s){
+  const monoW = measure('0', {b:true,i:false,c:'r',sz:16,f:'Arial',ls:0}, 1);
+  const out = [];
+  for(let i=0; i<s.lines.length; i++){
+    const l = s.lines[i];
+    if(l.k === 'empty'){ out.push(''); continue; }
+    const segs = layoutLine(l, 1, 0);
+    if(l.k === 'chords'){
+      let lyrText = null;
+      if(i+1 < s.lines.length && s.lines[i+1].k === 'lyric')
+        lyrText = segsToText(layoutLine(s.lines[i+1], 1, 0));
+      let line = '';
+      for(const seg of segs){
+        let col = lyrText != null ? colForX(lyrText, seg.x) : Math.round(seg.x / monoW);
+        if(col < line.length + (line ? 1 : 0)) col = line.length + (line ? 1 : 0);
+        line += ' '.repeat(col - line.length) + seg.text;
+      }
+      out.push(line);
+    }else{
+      out.push(segsToText(segs));
+    }
+  }
+  return out.join('\n');
 }
 
 /* ================= rendering ================= */
@@ -608,7 +665,7 @@ function showSong(id){
   $('home').style.display = 'none';
   $('songview').style.display = 'block';
   $('sbtitle').textContent = s.title.replace(/\s+/g,' ').trim();
-  $('editbtn').style.display = s.custom ? '' : 'none';
+  $('editbtn').style.display = '';
   const songs = filteredSongs().length ? filteredSongs() : allSongs();
   let pos = songs.findIndex(x=>x.id===id);
   if(pos<0){ pos = allSongs().findIndex(x=>x.id===id); }
@@ -778,24 +835,64 @@ $('tagclose').onclick = closeOverlays;
 let editingId = null;
 function openEditor(song){
   editingId = song ? song.id : null;
+  const isBuiltin = !!(song && !song.custom);
   $('edittitle').textContent = song ? 'Modifica canto' : 'Nuovo canto';
   $('e-title').value = song ? song.title : '';
   $('e-sub').value = song ? (song.subtitle||'') : '';
   $('e-mel').value = song ? (song.melody||'') : '';
-  $('e-body').value = song ? (song.body||'') : '';
-  $('e-delete').style.display = song ? '' : 'none';
+  $('e-body').value = (song && song.custom) ? (song.body||'') : '';
+  $('e-bodylabel').style.display = isBuiltin ? 'none' : '';
+  $('e-body').style.display = isBuiltin ? 'none' : '';
+  $('e-formathint').style.display = isBuiltin ? 'none' : '';
+  $('e-bodyhint').style.display = isBuiltin ? '' : 'none';
+  $('e-duplicate').style.display = isBuiltin ? '' : 'none';
+  if(isBuiltin){
+    $('e-delete').style.display = overrides[song.id] ? '' : 'none';
+    $('e-delete').textContent = 'Ripristina originale';
+  }else{
+    $('e-delete').style.display = song ? '' : 'none';
+    $('e-delete').textContent = 'Elimina';
+  }
   $('scrim').classList.add('open');
   $('editmodal').classList.add('open');
 }
 $('addbtn').onclick = () => openEditor(null);
 $('editbtn').onclick = () => {
-  const s = customSongs.find(x=>x.id===currentId);
+  const s = allSongs().find(x=>x.id===currentId);
   if(s) openEditor(s);
+};
+$('e-duplicate').onclick = () => {
+  const s = allSongs().find(x=>x.id===editingId);
+  if(!s) return;
+  const copy = {
+    id: 'c'+Date.now(),
+    title: $('e-title').value.trim() || s.title,
+    subtitle: $('e-sub').value.trim(),
+    melody: $('e-mel').value.trim(),
+    tags: tagsOf(s),
+    body: builtinToText(s)
+  };
+  copy.title += ' (copia)';
+  customSongs.push(copy);
+  store.set('custom', customSongs);
+  closeOverlays();
+  location.hash = '#/song/'+encodeURIComponent(copy.id);
 };
 $('e-cancel').onclick = closeOverlays;
 $('e-save').onclick = () => {
   const title = $('e-title').value.trim();
   if(!title){ $('e-title').focus(); return; }
+  if(editingId && editingId[0] === 'b'){
+    overrides[editingId] = {
+      title, subtitle: $('e-sub').value.trim(), melody: $('e-mel').value.trim()
+    };
+    store.set('overrides', overrides);
+    searchIndex.delete(editingId); prefCache.delete(editingId);
+    closeOverlays();
+    if(currentId === editingId){ $('sbtitle').textContent = title; renderSheet(); }
+    else renderList();
+    return;
+  }
   const data = {
     title, subtitle: $('e-sub').value.trim(),
     melody: $('e-mel').value.trim(), body: $('e-body').value
@@ -817,6 +914,18 @@ $('e-save').onclick = () => {
 };
 $('e-delete').onclick = () => {
   if(!editingId) return;
+  if(editingId[0] === 'b'){
+    delete overrides[editingId];
+    store.set('overrides', overrides);
+    searchIndex.delete(editingId); prefCache.delete(editingId);
+    closeOverlays();
+    if(currentId === editingId){
+      const s = allSongs().find(x=>x.id===editingId);
+      $('sbtitle').textContent = s.title.replace(/\s+/g,' ').trim();
+      renderSheet();
+    }else renderList();
+    return;
+  }
   if(!confirm('Eliminare questo canto?')) return;
   customSongs = customSongs.filter(x=>x.id!==editingId);
   store.set('custom', customSongs);
@@ -826,7 +935,7 @@ $('e-delete').onclick = () => {
 
 /* ---------- export / import ---------- */
 $('exportbtn').onclick = () => {
-  const data = {version:1, exported:new Date().toISOString(), tags:tagState, transpose:trState, custom:customSongs};
+  const data = {version:1, exported:new Date().toISOString(), tags:tagState, transpose:trState, custom:customSongs, overrides};
   const blob = new Blob([JSON.stringify(data,null,1)], {type:'application/json'});
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -843,6 +952,7 @@ $('importfile').addEventListener('change', e => {
       const d = JSON.parse(rd.result);
       if(d.tags) tagState = d.tags;
       if(d.transpose) trState = d.transpose;
+      if(d.overrides){ overrides = {...overrides, ...d.overrides}; store.set('overrides', overrides); }
       if(d.custom){
         const ids = new Set(customSongs.map(x=>x.id));
         for(const c of d.custom) if(!ids.has(c.id)) customSongs.push(c);
